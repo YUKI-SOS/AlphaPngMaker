@@ -20,7 +20,9 @@ public:
 	//temp폴더로 이미지 복사 및 24비트 jpg면 32비트 png로 변환까지
 	bool InitImg(CString path);
 	void EraseWhite(cv::Mat* img, cv::Mat* split);
-	bool OutputChannels(std::string path, cv::Mat* ch);
+	void EraseWhite_BlueCh(cv::Mat* img, cv::Mat* split);
+	bool OutputChannels(std::string path, cv::Mat* split);
+	bool OutputImage(std::string path, cv::Mat* split);
 	CPreviewDlg* m_pPreviewDlg;
 	bool bPrevDlg;
 

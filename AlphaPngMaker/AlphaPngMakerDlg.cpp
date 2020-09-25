@@ -229,15 +229,15 @@ void CAlphaPngMakerDlg::OnBnClickedPreviewBtn()
 	int curSel = pList->GetCurSel();
 	if (curSel == -1)
 		return;
-	if (bPrevDlg == false)
-	{
-		bPrevDlg = true;
-		pList->GetText(curSel, origFilePath);
-		InitImg(origFilePath);
-		EraseWhite(&changedPngImg, channels);
-		m_pPreviewDlg->BitmapLoad();
-		m_pPreviewDlg->ShowWindow(SW_SHOW);
-	}
+
+	bPrevDlg = true;
+	pList->GetText(curSel, origFilePath);
+	InitImg(origFilePath);
+	//EraseWhite(&changedPngImg, channels);
+	EraseWhite_BlueCh(&changedPngImg, channels);
+	m_pPreviewDlg->BitmapLoad();
+	m_pPreviewDlg->ShowWindow(SW_SHOW);
+
 }
 
 LRESULT CAlphaPngMakerDlg::OnKickIdle(WPARAM wParam, LPARAM lParam)
@@ -251,8 +251,8 @@ LRESULT CAlphaPngMakerDlg::OnKickIdle(WPARAM wParam, LPARAM lParam)
 void CAlphaPngMakerDlg::GetColorVal()
 {
 	CEdit* pRed = (CEdit*)GetDlgItem(IDC_RED_VAL);
-	CEdit* pGreen = (CEdit*)GetDlgItem(IDC_RED_VAL);
-	CEdit* pBlue = (CEdit*)GetDlgItem(IDC_RED_VAL);
+	CEdit* pGreen = (CEdit*)GetDlgItem(IDC_GREEN_VAL);
+	CEdit* pBlue = (CEdit*)GetDlgItem(IDC_BLUE_VAL);
 
 	CString csRed;
 	CString csGreen;
@@ -330,7 +330,6 @@ bool CAlphaPngMakerDlg::InitImg(CString path)
 
 void CAlphaPngMakerDlg::EraseWhite(cv::Mat* img, cv::Mat* split)
 {
-
 	GetColorVal();
 	int row = img->rows;
 	int col = img->cols;
@@ -369,33 +368,74 @@ void CAlphaPngMakerDlg::EraseWhite(cv::Mat* img, cv::Mat* split)
 			{
 				continue;
 			}
-			uchar pixelb = changedPngImg.at<cv::Vec4b>(frow, fcol)[0];
-			uchar pixelg = changedPngImg.at<cv::Vec4b>(frow, fcol)[1];
-			uchar pixelr = changedPngImg.at<cv::Vec4b>(frow, fcol)[2];
+			uchar pixelb = img->at<cv::Vec4b>(frow, fcol)[0];
+			uchar pixelg = img->at<cv::Vec4b>(frow, fcol)[1];
+			uchar pixelr = img->at<cv::Vec4b>(frow, fcol)[2];
 			if (pixelr >= redValue && pixelg >= greenValue && pixelb >= blueValue)
 			{
 				//changedPngImg.at<cv::Vec4b>(frow, fcol)[3] = 0;
 				split[3].at<uchar>(frow, fcol) = 0;
 			}
-			uchar pixela = changedPngImg.at<cv::Vec4b>(frow, fcol)[3];
+			uchar pixela = img->at<cv::Vec4b>(frow, fcol)[3];
 
 		}
 	}
 
 	//미리보기 위해서 temp폴더에 채널별 파일 생성.
 	OutputChannels("../temp", split);
+	OutputImage("../temp", img);
+}
+
+void CAlphaPngMakerDlg::EraseWhite_BlueCh(cv::Mat* img, cv::Mat* split)
+{
+	GetColorVal();
+	int row = img->rows;
+	int col = img->cols;
+	cv::split(*img, split);
+	for (int frow = 0; frow < row; frow++)
+	{
+		for (int fcol = 0; fcol < col; fcol++)
+		{
+			//이미지 최 외곽은 일단 날리고 상하좌우 찾기 힘드니까 넘기자
+			if (frow == 0 || frow == row - 1 || fcol == 0 || fcol == col - 1)
+			{
+				//changedPngImg.at<cv::Vec4b>(frow, fcol)[3] = 0;
+				split[3].at<uchar>(frow, fcol) = 0;
+				continue;
+			}
+			uchar pixelb = img->at<cv::Vec4b>(frow, fcol)[0];
+			if (pixelb >= blueValue) 
+			{
+				split[3].at<uchar>(frow,fcol) = 0;
+			}
+
+		}
+	}
+
+	OutputChannels("../temp", split);
+	OutputImage("../temp", split);
 
 }
 
-bool CAlphaPngMakerDlg::OutputChannels(std::string path, cv::Mat* ch)
+bool CAlphaPngMakerDlg::OutputChannels(std::string path, cv::Mat* split)
 {
-	if (!cv::imwrite(path + "/tempredch.png", ch[2]))
+	if (!cv::imwrite(path + "/tempredch.png", split[2]))
 		return false;
-	if (!cv::imwrite(path + "/tempgreench.png", ch[1]))
+	if (!cv::imwrite(path + "/tempgreench.png", split[1]))
 		return false;
-	if (!cv::imwrite(path + "/tempbluech.png", ch[0]))
+	if (!cv::imwrite(path + "/tempbluech.png", split[0]))
 		return false;
-	if (!cv::imwrite(path + "/tempalphach.png", ch[3]))
+	if (!cv::imwrite(path + "/tempalphach.png", split[3]))
+		return false;
+
+	return true;
+}
+
+bool CAlphaPngMakerDlg::OutputImage(std::string path, cv::Mat* split)
+{
+	cv::Mat outputImg;
+	cv::merge(split, 4, outputImg);
+	if(!cv::imwrite(path+"/tempoutput.png", outputImg))
 		return false;
 
 	return true;
